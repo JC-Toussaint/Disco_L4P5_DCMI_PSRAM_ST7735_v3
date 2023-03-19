@@ -123,7 +123,9 @@ static void SPIx_Init(void);
 static void SPIx_WriteReadData(const uint8_t *DataIn, uint8_t *DataOut, uint16_t DataLength);
 static void SPIx_Write(uint8_t Value);
 void LCD_Delay(uint32_t Delay);
-static void  BSP_OSPIM_Init(void);
+
+static void BSP_OSPIM_Init(void);
+static void BSP_OSPIM_RCC_delay(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -178,6 +180,7 @@ int main(void)
 	ST7735_FillScreen(ST7735_BLACK);
 
 	BSP_OSPIM_Init();
+	BSP_OSPIM_RCC_delay();
 
 	//  BSP_LCD_Init();
 	//  uint32_t XSize= BSP_LCD_GetXSize();
@@ -266,17 +269,13 @@ int main(void)
 
 	/* Infinite loop */
 	/* USER CODE BEGIN WHILE */
-	while (1)
-	{
-
-		if (transferErrorDetected == 1)
-		{
+	while (1){
+		if (transferErrorDetected == 1){
 			/* Toggle LED2 with a period of 200 ms */
 			BSP_LED_Toggle(LED2);
 			HAL_Delay(200);
 		}
-		if (transferCompleteDetected == 1)
-		{
+		if (transferCompleteDetected == 1){
 			/* Turn LED2 on*/
 			BSP_LED_On(LED2);
 			transferCompleteDetected = 0;
@@ -290,7 +289,6 @@ int main(void)
 				printf("%lu / %lu %u\n", uwIndex, BUFFERSIZE, uval);
 				//printf("%c", uval);
 			}
-
 			printf("\n");
 		}
 
@@ -981,10 +979,6 @@ static void BSP_OSPIM_Init(void){
 	OSPI_MemoryMappedTypeDef sMemMappedCfg = {0};
 	uint8_t reg[2];
 
-	uint32_t address = 0;
-	__IO uint8_t *mem_addr=NULL;
-	uint32_t delay=1, calibration_ongoing=1, test_failed=1;
-
 	OSPIM_Cfg_Struct.ClkPort    = 1;
 	OSPIM_Cfg_Struct.DQSPort    = 1;
 	OSPIM_Cfg_Struct.IOHighPort = HAL_OSPIM_IOPORT_1_HIGH;
@@ -1069,14 +1063,18 @@ static void BSP_OSPIM_Init(void){
 		Error_Handler();
 	}
 
-	/****************************************************************************/
-	/*                                                                          */
-	/* RCC delay configuration register setting                                 */
-	/*                                                                          */
-	/****************************************************************************/
-	/* May vary from board to be board. To be implemented by user application */
-	delay = 1;
-	calibration_ongoing = 1;
+
+}
+
+/**
+ * @brief  RCC delay configuration register setting
+ * May vary from board to be board. To be implemented by user application
+ */
+static void BSP_OSPIM_RCC_delay(void){
+
+	uint32_t address = 0;
+	__IO uint8_t *mem_addr=NULL;
+	uint32_t delay=1, calibration_ongoing=1, test_failed=1;
 	while (calibration_ongoing)
 	{
 		HAL_RCCEx_OCTOSPIDelayConfig(delay, 0);
