@@ -228,8 +228,15 @@ int main(void)
 	/* Disable unwanted HSYNC (IT_LINE)/VSYNC interrupts */
 	__HAL_DCMI_DISABLE_IT(&hDcmiHandler, DCMI_IT_LINE | DCMI_IT_VSYNC);
 
+#define OSPIM
+#ifdef OSPIM
+	hal_status = HAL_DCMI_Start_DMA(&hDcmiHandler, DCMI_MODE_SNAPSHOT,  (uint32_t)(OCTOSPI1_BASE) , CAMERA_WIDTH * CAMERA_HEIGHT/2 );
+#else
 	hal_status = HAL_DCMI_Start_DMA(&hDcmiHandler, DCMI_MODE_SNAPSHOT,  (uint32_t)(pBuffer) , CAMERA_WIDTH * CAMERA_HEIGHT/2 );
 	/* ------------------------------------------------------------------------------------------- uint32_t size ---- */
+#endif
+
+
 	OnError_Handler(hal_status != HAL_OK);
 
 	/*##-4- Line capture ############################*/
@@ -237,14 +244,28 @@ int main(void)
 	while(start_the_camera_capture == 0) {;}
 	printf("capture %lu\n", start_the_camera_capture);
 
+#ifdef OSPIM
+	/* Read back data from the SRAM memory */
+	for(uint32_t pos = 0; pos < CAMERA_WIDTH * CAMERA_HEIGHT; pos++)
+	   {
+		uint16_t val = * (__IO uint16_t *)(OCTOSPI1_BASE+2*pos);
+		pBuffer[pos] = val;
+	   }
+#endif
+
+#define noDRAWIMAGE
 	for (uint16_t i=0; i<CAMERA_WIDTH; i++){
 		for (uint16_t j=0; j<CAMERA_HEIGHT; j++){
 			uint16_t color565 = pBuffer[j*CAMERA_WIDTH+i];
-			//color565 = ((color565 & 0xFF00) >> 8) | ((color565 & 0xFF) << 8);
+#ifdef DRAWIMAGE
+			color565 = ((color565 & 0xFF00) >> 8) | ((color565 & 0xFF) << 8);
+			pBuffer[j*CAMERA_WIDTH+i]=color565;
+			ST7735_DrawImage(0, 0, CAMERA_WIDTH, CAMERA_HEIGHT, pBuffer);
+#else
 			ST7735_DrawPixel(i, j, color565);
+#endif
 		}
 	}
-	HAL_Delay(15000);
 
 #endif
 
@@ -286,7 +307,7 @@ int main(void)
 				__IO uint16_t uval = aTxBuffer[uwIndex];
 				if (uval != aTxBuffer[uwIndex]) Error_Handler();
 
-				printf("%lu / %lu %u\n", uwIndex, BUFFERSIZE, uval);
+				printf("%lu / %u %u\n", uwIndex, BUFFERSIZE, uval);
 				//printf("%c", uval);
 			}
 			printf("\n");
@@ -1072,7 +1093,6 @@ static void BSP_OSPIM_Init(void){
  */
 static void BSP_OSPIM_RCC_delay(void){
 
-	uint32_t address = 0;
 	__IO uint8_t *mem_addr=NULL;
 	uint32_t delay=1, calibration_ongoing=1, test_failed=1;
 	while (calibration_ongoing)
